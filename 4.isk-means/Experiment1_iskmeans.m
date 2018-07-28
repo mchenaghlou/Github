@@ -1,35 +1,30 @@
 clear all
 
-load('../Data/exp1_smiley_dataset_time_series.mat');
-dataset = dataset(:, 1:2);
-tic
-[ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed, clustering_snap_shot, ClusterLabelDic, Radiis] = isKmeans(dataset(:, 1:2) , 2, 0.99, 0.99, 0, ...
-    './Experiment_1.avi')
-time = toc
-save('./exp1_iskmeans_show_evolution_of_clusters_S1.mat', 'ClusterIndices', 'labels', 'iCVs_ff', 'iCVs1_ff', 'added', 'removed');
+% load dataset
+load('./exp1_smiley_dataset_time_series.mat');
 
 
+% call iskMeans algorithm
+[ V, ClusterIndices, ~, ~, ~, ~, ~, ~, ~] = isKmeans(dataset(:, 1:2) , ...
+    0, 0.99, 0.99, 0, './Experiment_1.avi');
 
+% plot the dataset with prototypes.
 figure('rend','painters','pos',[300 600 400 300])
 hold on
 for i = 1:max(ClusterIndices)
     plot(dataset(ClusterIndices==i, 1), dataset(ClusterIndices==i, 2), '.')
 end
-% plot(V(:, 1), V(:, 2), '*k', 'markersize', 5, 'LineWidth',5)
+
 for i = 1:size(V, 1)
     plot(V(i, 1), V(i, 2), '*k', 'markersize', 12,'linewidth', 2)
-%     plot_circle(V(i, 1), V(i, 2), Radiis(i))
 end
  
 
 
 axis equal
-
-% xt = get(gca, 'XTick');
 set(gca, 'FontSize', 14)
 set(gca, 'FontWeight', 'bold')
 
-% yt = get(gca, 'YTick');
 set(gca, 'FontSize', 14)
 set(gca, 'FontWeight', 'bold')
 
@@ -44,11 +39,11 @@ text(5,5,'X_5', 'FontSize',12, 'FontWeight', 'bold')
 text(22,5,'X_6', 'FontSize',12, 'FontWeight', 'bold')
 text(38,8,'X_7', 'FontSize',12, 'FontWeight', 'bold')
 
+% calculate the Xie-Beni index value 
+XB_batch(dataset, V)
 
-
-XB_batch(dataset, V);
-
-[ClusterIndices, labels] = ReconstructLabels(ClusterIndices, labels, false);
+% calculate the Adjusted Rand Index value 
 rand_index(ClusterIndices, labels,'adjusted')
 
+% calculate the Normalized Mutual Information value 
 FindNMI(ClusterIndices', labels')
