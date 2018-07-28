@@ -1,10 +1,9 @@
 clear all
-% Dataset_smiley
-% save('./4.isk-means/PaperExperiments/exp1_smiley_dataset_time_series.mat', 'dataset', 'labels');
+
 load('../Data/exp1_smiley_dataset_time_series.mat');
 dataset = dataset(:, 1:2);
 tic
-[ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed, clustering_snap_shot, ClusterLabelDic, Radiis] = isKmeans(dataset(:, 1:2) , 0, 0.99, 0.99, 0, ...
+[ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed, clustering_snap_shot, ClusterLabelDic, Radiis] = isKmeans(dataset(:, 1:2) , 2, 0.99, 0.99, 0, ...
     './Experiment_1.avi')
 time = toc
 save('./exp1_iskmeans_show_evolution_of_clusters_S1.mat', 'ClusterIndices', 'labels', 'iCVs_ff', 'iCVs1_ff', 'added', 'removed');
