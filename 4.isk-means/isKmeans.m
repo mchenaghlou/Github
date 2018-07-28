@@ -1,9 +1,9 @@
-function [ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed,clustering_snap_shot, ClusterLabelDic, Radiis] = isKmeans( X ,record_video, lambda, lamda_delta, emerging_cluster_capacity,myPathVid)
+function [ V, labels, iCVs_ff, iCVs1_ff, added, removed,clustering_snap_shot, ClusterLabelDic, Radiis] = isKmeans( X ,record_video, lambda, lamda_delta, emerging_cluster_capacity,myPathVid)
 %==========================================================================
 % Author: Milad Chenaghlou (mchenaghlou@student.unimelb.edu.au)
 % Created: 20018-07-26
 % iskM (Incremental Sequential k-Means) 
-%   Input Data:
+% Input Data:
 %   X: dataset with d columns (d dimensions) and n rows (data-points).
 %   record_video: record a video of the process
 %       record_video = 0 : No video
@@ -14,6 +14,21 @@ function [ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed,clustering_snap_
 %   emerging_cluster_capacity: not implemented. (a mechanism to handle more 
 %       emerging clusters)
 %   myPathVid: The path to create the video file.
+% 
+% Output Data:
+%   V: the prototypes calculated by iskM
+%   labels: the labels created by iskM for data-points
+%   iCVs_ff: the incremental Xie-Beni values with forgetting factor for
+%       Current-skM
+%   iCVs1_ff: the incremental Xie-Beni values with forgetting factor for
+%       Control-sKM
+%   added: the points in time that a prototype is added
+%   removed: the points in time that a prototype is removed
+%   clustering_snap_shot: the variables need to show snapshots of the
+%       evolution of the prototypes
+%   ClusterLabelDic: the dictionary that store the label corresponding to
+%       each prototype
+%   Radiis: the radius of each prototype
 %==========================================================================
 
 % Ignore the parameter emerging_cluster_capacity by setting it to 0.
@@ -68,9 +83,9 @@ iCVs = zeros(n,1);
 iCVs1 = zeros(n,1);
 
 % initialize cluster indices for Current-skM
-ClusterIndices=zeros(n,1);
-ClusterIndices(1:k)=1:1:k;
-ClusterIndices(k+1:k+1)=k;
+labels=zeros(n,1);
+labels(1:k)=1:1:k;
+labels(k+1:k+1)=k;
 
 % initialize cluster indices for Control-skM
 ClusterIndices1=zeros(n,1);
@@ -159,7 +174,7 @@ if record_video > 0
     end
 end
 
-%% IDB and IXB Masud Initialization
+%% IDB and IXB Initialization
 oCentersp = Vp;
 GVecp = zeros(kp, D);
 CVecp = zeros(1, kp);
@@ -200,182 +215,169 @@ snapshot_time = n/4;
 
 
 for i = k+1+1 : n
-    
-    if rem(i, snapshot_time) == 0;
+    % save the snapshot
+    if rem(i, snapshot_time) == 0
         clustering_snap_shot.prototypes = [clustering_snap_shot.prototypes, {V}];
         clustering_snap_shot.data = [clustering_snap_shot.data, {X(1:i,:)}];
     end
     
+    % show the progress of the algorithm
     if rem(i, 1000)== 0
         i
     end
-    %     if rem(i,200) == 0
-    %         milad = 1;
-    %         past_time = current;
-    %         current = now;
-    %         current - past_time
-    %     end
+
+    % select the window to show on the plot
     if i >= horizon
         start = i-horizon+1;
     else
         start = 1;
     end
     
+    % the current data-point
     xq1 = X(i, 1:D);
     
     if record_video > 1
         subplot(2,3,1,'Parent',p)
         plot(xq1(:, 1), xq1(:, 2), '.');
-        %         drawnow();
         
         subplot(2,3,4,'Parent',p)
         plot(xq1(:, 1), xq1(:, 2), '.');
-        %         drawnow();
     end
     
-    %% Cluster Update ...
+    % update the Current-skM module
     [ label, V, NIs, ~, Radiis] = KMeansStep(xq1, V, NIs, Radiis);
-    ClusterIndices(i) = ClusterLabelDic((ClusterLabelDic(:, 1) == label), 2);
-%     ClusterIndices(i) = label;
-    if i == 4475
-        milad = 1;
-    end
-    if(ClusterIndices(i) == 0)
-        milad = 1;
-    end    
-    uq = calculate_cluster_membership( xq1, V, 'fuzzy');
+    labels(i) = ClusterLabelDic((ClusterLabelDic(:, 1) == label), 2);
+
     
-    [ ClusterIndices1(i), Vp, NIsp, ~, ~] = KMeansStep(xq1, Vp, NIsp, ones(100)); % V^{prime}
-    uq1 = calculate_cluster_membership( xq1, Vp, 'fuzzy');
-    
+    % update the Control-skM module
+    [ ClusterIndices1(i), Vp, NIsp, ~, ~] = KMeansStep(xq1, Vp, NIsp, ...
+        ones(100)); % V^{prime}
+        
     if record_video > 1
         subplot(2,3,1,'Parent',p)
         delete(prototype_handlers(label))
-        prototype_handlers(label) = plot(V(label, 1), V(label, 2), '*k', 'linewidth',5);
+        prototype_handlers(label) = plot(V(label, 1), V(label, 2), '*k',...
+            'linewidth',5);
         
         subplot(2,3,4,'Parent',p)
         delete(prototype_handlers_p(ClusterIndices1(i)))
-        prototype_handlers_p(ClusterIndices1(i)) = plot(Vp(ClusterIndices1(i), 1), Vp(ClusterIndices1(i), 2), '*k', 'linewidth',5);
+        prototype_handlers_p(ClusterIndices1(i)) = plot(Vp...
+            (ClusterIndices1(i), 1), Vp(ClusterIndices1(i), 2), '*k', ...
+            'linewidth',5);
     end
     
-    %% Calculate iXB_lambda directly
-    [iCVs_ff(i), hq(i), uq] = IXB_ff_milad( xq1, V, hq(i-1), iCVs_ff(i-1), lambda, size(V, 1), 'fuzzy');
-    %     [iCVs(i), hq(i)] = IXB_milad( xq1, V, hq(i-1), iCVs(i-1), size(V, 1), i, 'fuzzy');
+    % Calculate iXB_lambda for Current-skM
+    [iCVs_ff(i), hq(i), ~] = IXB_ff( xq1, V, hq(i-1), ...
+        iCVs_ff(i-1), lambda, size(V, 1), 'fuzzy');
+
+    % Calculate iXB_lambda for Control-skM
+    [iCVs1_ff(i), hqp(i), ~] = IXB_ff( xq1, Vp, hqp(i-1),...
+        iCVs1_ff(i-1), lambda, size(Vp, 1), 'fuzzy');    
     
-    [iCVs1_ff(i), hqp(i), uq1] = IXB_ff_milad( xq1, Vp, hqp(i-1), iCVs1_ff(i-1), lambda, size(Vp, 1), 'fuzzy');
-    %     [iCVs1(i), hqp(i)] = IXB_milad( xq1, Vp, hqp(i-1), iCVs1(i-1), size(Vp, 1), i, 'fuzzy');
     
-    %% Calculate iXB_lambda from complex forumula (Fuzzy Within Cluster Dispersion).
-    %     [ XB,Mindist,GVec,CVec,PsiVec] = IXB( xq1, uq, oCenters, V, 0.9, GVec,CVec,PsiVec,size(V, 1), i,oMindist);
-    %     oMindist = Mindist;
-    %     oCenters = V;
-    %     iCVs_ff(i) = XB;
-    %     [ XB1,Mindistp,GVecp,CVecp,PsiVecp] = IXB( xq1, uq1, oCentersp, Vp, 0.9, GVecp,CVecp,PsiVecp,size(Vp, 1), i,oMindistp);
-    %     oMindistp = Mindistp;
-    %     oCentersp = Vp;
-    %     iCVs1_ff(i) = XB1;
-    
-    %%  Calculate the Davies-Boulding index
-    %     [ DB1,GVec,CVec,PsiVec] = IDB( xq1, uq, oCenters, V, 0.9, GVec,CVec,PsiVec,size(V, 1));
+    %  Calculate the Davies-Boulding index
+    %     [ DB1,GVec,CVec,PsiVec] = IDB( xq1, uq, oCenters, V, 0.9, GVec...
+    %       ,CVec,PsiVec,size(V, 1));
     %     oCenters = V;
     %     iCVs_ff(i) = DB1;
-    %     [ DBp1,GVecp,CVecp,PsiVecp] = IDB( xq1, uq1, oCentersp, Vp, 0.9, GVecp,CVecp,PsiVecp,size(Vp, 1));
+    %     [ DBp1,GVecp,CVecp,PsiVecp] = IDB( xq1, uq1, oCentersp, Vp, ...
+    %       0.9, GVecp,CVecp,PsiVecp,size(Vp, 1));
     %     oCentersp = Vp;
     %     iCVs1_ff(i) = DBp1;
     
     
-    %% Calculate Within_Cluster_Dispersion with Masuds code
-    [ iXB_ff(i),Mindist,GVec,CVec,PsiVec] = IXB( xq1, uq, oCenters, V, 0.9, GVec,CVec,PsiVec,size(V, 1), i,oMindist);
+    % Calculate local within cluster dispersion 
+    uq = calculate_cluster_membership( xq1, V, 'fuzzy');
+    [ iXB_ff(i),Mindist,GVec,CVec,PsiVec] = IXB( xq1, uq, oCenters, V, ...
+        0.9, GVec,CVec,PsiVec,size(V, 1), i,oMindist);
     oCenters = V;
     oMindist = Mindist;
     cohesions = CVec ./ NIs';
-    
-    
-%     [ iCVs1_ff(i),Mindistp,GVecp,CVecp,PsiVecp] = IXB( xq1, uq1, oCentersp, Vp, 0.9, GVecp,CVecp,PsiVecp,size(Vp, 1), i,oMindistp);
-%     oCentersp = Vp;
-%     oMindistp = Mindistp;
 
     
-    
-    %     if record_video == 1
-    %         subplot(2,3,4,'Parent',p)
-    %         delete(cohesion_handlers(ClusterIndices1(i)))
-    %         cohesion_handlers(ClusterIndices1(i)) = text(Vp(ClusterIndices1(i), 1)-0.1, Vp(ClusterIndices1(i), 2)-0.2, num2str(cohesions(ClusterIndices1(i))));
-    %     end
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if record_video > 0
         subplot(2,3,2,'Parent',p)
-        %         axis([start i , 0 max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i))), max(max(iCVs(start:i)), max(iCVs1(start:i))))])
-        plot([i-1:i], iCVs_ff(i-1:i), '-b', 'linewidth', 2, 'DisplayName','iXB_{\lambda}')
+        plot([i-1:i], iCVs_ff(i-1:i), '-b', 'linewidth', 2, 'DisplayName'...
+            ,'iXB_{\lambda}')
         if ishandle(err_bar_handle1)
             delete(err_bar_handle1)
         end
-        err_bar_handle1 = errorbar(i-1, iCVs_ff_means(i-1), sigma_count * sqrt(iCVs_ff_variance(i-1-emerging_cluster_capacity)),'x', 'linewidth',1.5, 'Color', 'k')
-        %         plot([i-1:i], iCVs(i-1:i), 'r--', 'linewidth', 2, 'DisplayName','iXB')
+        err_bar_handle1 = errorbar(i-1, iCVs_ff_means(i-1), sigma_count ...
+            * sqrt(iCVs_ff_variance(i-1-emerging_cluster_capacity)),'x',...
+            'linewidth',1.5, 'Color', 'k')
         
-        the_max1 = max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i))), max(max(iCVs(start:i)), max(iCVs1(start:i))));
-%         the_max2 = max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i))), max(max(iCVs(start:i)), max(iCVs1(start:i))));
-        the_max2 = max(iCVs1_ff_means(i-1) + sigma_count * sqrt(iCVs1_ff_variance(i-1-emerging_cluster_capacity)), ...
-            iCVs_ff_means(i-1) + sigma_count * sqrt(iCVs_ff_variance(i-1-emerging_cluster_capacity)));
+        the_max1 = max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i)))...
+            , max(max(iCVs(start:i)), max(iCVs1(start:i))));
+        the_max2 = max(iCVs1_ff_means(i-1) + sigma_count * sqrt(...
+            iCVs1_ff_variance(i-1-emerging_cluster_capacity)), ...
+            iCVs_ff_means(i-1) + sigma_count * sqrt(iCVs_ff_variance(...
+            i-1-emerging_cluster_capacity)));
         
         axis([start i , 0 max(the_max1, the_max2)])
         
         subplot(2,3,5,'Parent',p)
-        plot([i-1:i], iCVs1_ff(i-1:i), '-b', 'linewidth', 2, 'DisplayName','iXB_{\lambda}')
+        plot([i-1:i], iCVs1_ff(i-1:i), '-b', 'linewidth', 2, ...
+            'DisplayName','iXB_{\lambda}')
         if ishandle(err_bar_handle2)
             delete(err_bar_handle2)
         end
-        err_bar_handle2 = errorbar(i-1, iCVs1_ff_means(i-1), sigma_count * sqrt(iCVs1_ff_variance(i-1-emerging_cluster_capacity)),'x', 'linewidth',1.5, 'Color', 'k')
-        %         plot([i-1:i], iCVs1(i-1:i), 'r--', 'linewidth', 2, 'DisplayName','iXB')
+        err_bar_handle2 = errorbar(i-1, iCVs1_ff_means(i-1), sigma_count...
+            * sqrt(iCVs1_ff_variance(i-1-emerging_cluster_capacity)),'x'...
+            , 'linewidth',1.5, 'Color', 'k')
+
         
-        the_max1 = max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i))), max(max(iCVs(start:i)), max(iCVs1(start:i))));
-%         the_max2 = max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i))), max(max(iCVs(start:i)), max(iCVs1(start:i))));
-        the_max2 = max(iCVs1_ff_means(i-1) + sigma_count * sqrt(iCVs1_ff_variance(i-1-emerging_cluster_capacity)), ...
-            iCVs_ff_means(i-1) + sigma_count * sqrt(iCVs_ff_variance(i-1-emerging_cluster_capacity)));
+        the_max1 = max(max(max(iCVs_ff(start:i)), max(iCVs1_ff(start:i)))...
+            , max(max(iCVs(start:i)), max(iCVs1(start:i))));
+        the_max2 = max(iCVs1_ff_means(i-1) + sigma_count * sqrt(...
+            iCVs1_ff_variance(i-1-emerging_cluster_capacity)), ...
+            iCVs_ff_means(i-1) + sigma_count * sqrt(iCVs_ff_variance(...
+            i-1-emerging_cluster_capacity)));
         
-        
-        
-        
+
         axis([start i , 0 max(the_max1, the_max2)])
     end
     
-    if i == 307
-        milad = 1;
-    end
     if i > emerging_cluster_capacity + 1
-        %% Calculate delta
-        delta(i) = iCVs1_ff(i) - iCVs_ff(i);
+        % Calculate delta
+        delta = iCVs1_ff(i) - iCVs_ff(i);
         if record_video > 0
             if i > stab_period
                 subplot(2,3,[3,6], 'Parent',p)
                 hold on
                 cla
-                errorbar(delta_means(i-1-emerging_cluster_capacity),sigma_count * sqrt(delta_vars(i-1-emerging_cluster_capacity)),'x', 'linewidth',1.5)
-                plot(1, delta(i), 'xk', 'linewidth',5);
+                errorbar(delta_means(i-1-emerging_cluster_capacity),...
+                    sigma_count * sqrt(delta_vars(i-1-...
+                    emerging_cluster_capacity)),'x', 'linewidth',1.5)
+                plot(1, delta, 'xk', 'linewidth',5);
                 hold off
                 
-% Horizontal Errorbar                
-%                 errorbar(delta_means(i-1-emerging_cluster_capacity),1,sigma_count * sqrt(delta_vars(i-1-emerging_cluster_capacity)),'horizontal', 'x', 'linewidth',1.5)
-%                 hold on
-%                 plot(delta(i), 1, 'xk', 'linewidth',5);
+                % Horizontal Errorbar                
+                % errorbar(delta_means(i-1-emerging_cluster_capacity),1,...
+                %   sigma_count * sqrt(delta_vars(i-1-...
+                %   emerging_cluster_capacity)),'horizontal', 'x', ...
+                %   'linewidth',1.5)
+                % hold on
+                % plot(delta(i), 1, 'xk', 'linewidth',5);
 
-% Extract subplots into new standalone figure.
-% hAx = findobj('type', 'axes');
-% for iAx = 1:length(hAx)
-% fNew = figure;
-% hNew = copyobj(hAx(iAx), fNew);
-% % Change the axes position so it fills whole figure
-% set(hNew, 'pos', [0.23162 0.2233 0.72058 0.63107])
-% end
+                % Extract subplots into new standalone figure.
+                % hAx = findobj('type', 'axes');
+                % for iAx = 1:length(hAx)
+                % fNew = figure;
+                % hNew = copyobj(hAx(iAx), fNew);
+                % % Change the axes position so it fills whole figure
+                % set(hNew, 'pos', [0.23162 0.2233 0.72058 0.63107])
+                % end
             end
         end
         
         % For adding prototypes
-        if  i > 15 && (delta(i) >= comparing_mean + sigma_count * sqrt(comparing_variance)) && ...
-                (iCVs1_ff(i) >= iCVs1_ff_means(i-1) + sigma_count * sqrt(iCVs1_ff_variance(i-1)))
+        if  i > stab_period && (delta >= comparing_mean + sigma_count * ...
+                sqrt(comparing_variance)) && (iCVs1_ff(i) >= ...
+                iCVs1_ff_means(i-1) + sigma_count * sqrt(...
+                iCVs1_ff_variance(i-1)))
             cen = xq1;
             cluster_center_dists = pdist2(cen, V);
-            [min_dist, min_ind] = min(cluster_center_dists );
+            [min_dist, ~] = min(cluster_center_dists );
             SF = squareform(pdist(Vp));
             SF(SF == 0 ) = NaN;
             [v] = min(SF(:));
@@ -409,11 +411,12 @@ for i = k+1+1 : n
                 
                 if record_video > 1
                     subplot(2,3,1,'Parent',p)
-                    prototype_handlers(length(prototype_handlers) + 1) = plot(cen(:, 1), cen(:, 2), '*k', 'linewidth',5);
+                    prototype_handlers(length(prototype_handlers) + 1)= ...
+                        plot(cen(:, 1), cen(:, 2), '*k', 'linewidth',5);
                     
                     subplot(2,3,4,'Parent',p)
-                    prototype_handlers_p(length(prototype_handlers_p) + 1) = plot(xq1(:, 1), xq1(:, 2), '*k', 'linewidth',5);
-                    %                 cohesion_handlers(length(cohesion_handlers) + 1) = text(Vp(ClusterIndices1(i), 1), Vp(ClusterIndices1(i), 2), '0');
+                    prototype_handlers_p(length(prototype_handlers_p)+1)=...
+                        plot(xq1(:, 1), xq1(:, 2), '*k', 'linewidth',5);
                 end
                 
                 if record_video > 0
@@ -435,16 +438,18 @@ for i = k+1+1 : n
         end
         
         %% For removing prototypes
-        if  i > 15 && (delta(i) <= comparing_mean - sigma_count * sqrt(comparing_variance)) && ...
-                (iCVs_ff(i) >= iCVs_ff_means(i-1) + sigma_count * sqrt(iCVs_ff_variance(i-1)))
+        if  i > 15 && (delta <= comparing_mean - sigma_count * sqrt(...
+                comparing_variance)) && (iCVs_ff(i) >= iCVs_ff_means(i-1)...
+                + sigma_count * sqrt(iCVs_ff_variance(i-1)))
             if size(V, 1) > 1
-                %           This is on V, because the jump was seen in simple kmeans
-                %% calculate the local XB and choose the prototype with the max
+                % calculate the local XB and choose the prototype with ...
+                %   the max
                 SF = squareform(pdist(V));
                 SF(SF == 0 ) = NaN;
                 closest_prototype_dists = [];
                 for j = 1:size(V, 1)
-                    closest_prototype_dists = [closest_prototype_dists, min(SF(j, :))];
+                    closest_prototype_dists = [closest_prototype_dists, ...
+                        min(SF(j, :))];
                 end
                 local_iXB = cohesions ./ closest_prototype_dists;
                 [max_val, max_ind] = max(local_iXB);
@@ -453,22 +458,22 @@ for i = k+1+1 : n
                 to_be_removed_ind = max_ind;
                 
                 %% Choose the last moved prototype
-                %                 last_moved = ClusterIndices(i);
-                %                 temp_V = V;
-                %                 temp_V(ClusterIndices(i), :) = [];
-                %                 dists = pdist2(temp_V, V(ClusterIndices(i), :));
-                %                 [min_val, min_ind] = min(dists);
-                %                 to_be_removed_ind = max(ClusterIndices(i), min_ind);
-                %                 to_be_merged_ind = min(ClusterIndices(i), min_ind);
+                % last_moved = ClusterIndices(i);
+                % temp_V = V;
+                % temp_V(ClusterIndices(i), :) = [];
+                % dists = pdist2(temp_V, V(ClusterIndices(i), :));
+                % [min_val, min_ind] = min(dists);
+                % to_be_removed_ind = max(ClusterIndices(i), min_ind);
+                % to_be_merged_ind = min(ClusterIndices(i), min_ind);
                 
                 
                 %% Choose the two closest prototypes to merger
-%                     SF = squareform(pdist(V));
-%                     SF(SF == 0 ) = NaN;
-%                     [v] = min(SF(:));
-%                     [row,~] = find(SF==v);
-%                     to_be_removed_ind = max(row);
-%                     to_be_merged_ind = min(row);
+                % SF = squareform(pdist(V));
+                % SF(SF == 0 ) = NaN;
+                % [v] = min(SF(:));
+                % [row,~] = find(SF==v);
+                % to_be_removed_ind = max(row);
+                % to_be_merged_ind = min(row);
 
 
 
@@ -540,9 +545,9 @@ for i = k+1+1 : n
         end
         
         
-        delta_vars(i) = lamda_delta * delta_vars(i-1) + (((1-lamda_delta^2)/2) * ((delta(i) - delta_means(i-1)) ^ 2));
+        delta_vars(i) = lamda_delta * delta_vars(i-1) + (((1-lamda_delta^2)/2) * ((delta - delta_means(i-1)) ^ 2));
         comparing_variance = delta_vars(i-emerging_cluster_capacity);
-        delta_means(i) = (lamda_delta) * delta_means(i-1) + (1-lamda_delta) * delta(i);
+        delta_means(i) = (lamda_delta) * delta_means(i-1) + (1-lamda_delta) * delta;
         comparing_mean = delta_means(i-emerging_cluster_capacity);
         
         iCVs_ff_variance(i) = lamda_delta * iCVs_ff_variance(i-1) + (((1-lamda_delta^2)/2) * ((iCVs_ff(i) - iCVs_ff_means(i-1)) ^ 2));
