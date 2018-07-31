@@ -18,14 +18,14 @@ clear all
 %%%%% script to make europe dataset.
 
 
-load('./../Data/DataSets_realworld/gtd/gtd_for_iskmeans_europe.mat');
+load('./gtd_for_iskmeans_europe.mat');
 
 
  [ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed, ...
-     cluster_evolution_snapshots, ClusterLabelDic] = isKmeans(dataset, 0, ...
-     0.99, 0.99, 0, './4.isk-means/Experiment_real_gtd.avi');
+     cluster_evolution_snapshots, ClusterLabelDic] = isKmeans(dataset, 2, ...
+     0.99, 0.99, 0, './Experiment_real_gtd.avi');
 % load('./4.isk-means/PaperExperiments/iskmeans_real_life2_gtd_show_evolution_of_clusters.mat');
 
 % For showing evolution of clusters where added and removed.
-save('./4.isk-means/PaperExperiments/iskmeans_real_life2_gtd_show_evolution_of_clusters.mat', 'V','iCVs_ff', 'iCVs1_ff', 'ClusterIndices', 'added', 'removed', 'cluster_evolution_snapshots', 'ClusterLabelDic');
+save('./iskmeans_real_life2_gtd_show_evolution_of_clusters.mat', 'V','iCVs_ff', 'iCVs1_ff', 'ClusterIndices', 'added', 'removed', 'cluster_evolution_snapshots', 'ClusterLabelDic');
 
