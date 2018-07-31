@@ -1,5 +1,5 @@
 clear all
-filename = './ethylene_CO_class_labelled_reduced_subset_final_version.mat';
+filename = './GSA_dataset.mat';
 load(filename);
 dim = size(reduced_subset,2) - 1;
 labels = reduced_subset(:, end);

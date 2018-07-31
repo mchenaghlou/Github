@@ -18,7 +18,7 @@ clear all
 %%%%% script to make europe dataset.
 
 
-load('./gtd_for_iskmeans_europe.mat');
+load('./GTD_dataset.mat');
 
 
  [ V, ClusterIndices, iCVs_ff, iCVs1_ff, added, removed, ...
