@@ -1,4 +1,7 @@
-function [ V, labels, iCVs_ff, iCVs1_ff, added, removed,clustering_snap_shot, ClusterLabelDic, Radiis] = isKmeans( X ,record_video, lambda, lamda_delta, emerging_cluster_capacity,myPathVid)
+function [ V, labels, iCVs_ff, iCVs1_ff, added, removed, ...
+    clustering_snap_shot, ClusterLabelDic, Radiis] = ...
+    isKmeans( X ,record_video, lambda, lamda_delta, ...
+    emerging_cluster_capacity,myPathVid)
 %==========================================================================
 % Author: Milad Chenaghlou (mchenaghlou@student.unimelb.edu.au)
 % Created: 20018-07-26
@@ -214,6 +217,8 @@ clustering_snap_shot.data = {};
 snapshot_time = n/4;
 
 
+color_codes = ['k','b','r','g','y','c','m']
+
 for i = k+1+1 : n
     % save the snapshot
     if rem(i, snapshot_time) == 0
@@ -236,23 +241,25 @@ for i = k+1+1 : n
     % the current data-point
     xq1 = X(i, 1:D);
     
-    if record_video > 1
-        subplot(2,3,1,'Parent',p)
-        plot(xq1(:, 1), xq1(:, 2), '.');
-        
-        subplot(2,3,4,'Parent',p)
-        plot(xq1(:, 1), xq1(:, 2), '.');
-    end
+
     
     % update the Current-skM module
     [ label, V, NIs, ~, Radiis] = KMeansStep(xq1, V, NIs, Radiis);
     labels(i) = ClusterLabelDic((ClusterLabelDic(:, 1) == label), 2);
 
+    if record_video > 1
+        subplot(2,3,1,'Parent',p)
+        plot(xq1(:, 1), xq1(:, 2), strcat('.',color_codes(rem(labels(i), 7)+1)));
+        
+        subplot(2,3,4,'Parent',p)
+%         plot(xq1(:, 1), xq1(:, 2), '.');
+        plot(xq1(:, 1), xq1(:, 2), strcat('.',color_codes(rem(labels(i), 7)+1)));
+    end   
     
     % update the Control-skM module
     [ ClusterIndices1(i), Vp, NIsp, ~, ~] = KMeansStep(xq1, Vp, NIsp, ...
-        ones(100)); % V^{prime}
-        
+        ones(100)); % V^{prime} 
+    
     if record_video > 1
         subplot(2,3,1,'Parent',p)
         delete(prototype_handlers(label))
@@ -408,15 +415,20 @@ for i = k+1+1 : n
                 NIsp = [NIsp; 1];
                 
                 
-                
+                text_handler_curr = 0;
+                text_handler_cont = 0;
                 if record_video > 1
                     subplot(2,3,1,'Parent',p)
                     prototype_handlers(length(prototype_handlers) + 1)= ...
                         plot(cen(:, 1), cen(:, 2), '*k', 'linewidth',5);
+                    text_handler_curr = text(0, 53, 'Prototype Added')
+                    text_handler_curr.FontSize = 12;
                     
                     subplot(2,3,4,'Parent',p)
                     prototype_handlers_p(length(prototype_handlers_p)+1)=...
                         plot(xq1(:, 1), xq1(:, 2), '*k', 'linewidth',5);
+                    text_handler_cont = text(0, 53, 'Prototype Added')
+                    text_handler_cont.FontSize = 12;
                 end
                 
                 if record_video > 0
@@ -432,6 +444,14 @@ for i = k+1+1 : n
                     writeVideo(vidObj,currFrame);
                     writeVideo(vidObj,currFrame);
                     writeVideo(vidObj,currFrame);
+                    writeVideo(vidObj,currFrame);
+                    writeVideo(vidObj,currFrame);
+                    writeVideo(vidObj,currFrame);
+                    writeVideo(vidObj,currFrame);
+                    writeVideo(vidObj,currFrame);
+                    writeVideo(vidObj,currFrame);                    
+                    delete(text_handler_curr)
+                    delete(text_handler_cont)
                 end
             end
             
@@ -518,13 +538,19 @@ for i = k+1+1 : n
                     PsiVecp(to_be_removed_ind+1) = [];
                     
                     if record_video > 1
-                        
                         delete(prototype_handlers(to_be_removed_ind))
                         prototype_handlers(to_be_removed_ind) = [];
+                        
+                        subplot(2,3,1,'Parent',p)
+                        text_handler_curr = text(0, 53, 'Prototype Removed')
+                        text_handler_curr.FontSize = 12;
+                        
                         delete(prototype_handlers_p(to_be_removed_ind+1))
                         prototype_handlers_p(to_be_removed_ind+1) = [];
-                        %                     delete(cohesion_handlers(to_be_removed_ind+1))
-                        %                     cohesion_handlers(to_be_removed_ind+1) = [];
+                        
+                        subplot(2,3,4,'Parent',p)
+                        text_handler_cont = text(0, 53, 'Prototype Removed')
+                        text_handler_cont.FontSize = 12;
                     end
                     if record_video > 0
                         currFrame = getframe(gcf);
@@ -539,6 +565,9 @@ for i = k+1+1 : n
                         writeVideo(vidObj,currFrame);
                         writeVideo(vidObj,currFrame);
                         writeVideo(vidObj,currFrame);
+                        
+                        delete(text_handler_curr)
+                        delete(text_handler_cont)
                     end
                 end
             end
